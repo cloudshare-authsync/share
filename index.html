@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Google Sign-In</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        #maincont {
+            height: 100vh;
+            width: 100vw;
+            background-color: burlywood;
+            visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #butto, #logoutBtn {
+            margin: 20px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            background-color: #333;
+            color: white;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        #logoutBtn {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <button id="butto" onclick="signInWithGoogle()">Sign In with Google</button>
+
+    <div id="maincont">
+        <h1>Welcome, authenticated user!</h1>
+        <button id="logoutBtn" onclick="logOut()">Logout</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAImdjvo3yjfsxwwGKZp5iDx5VwmhfaDs",
+            authDomain: "contact-us-page-missbanaras.firebaseapp.com",
+            projectId: "contact-us-page-missbanaras",
+            appId: "1:323394332678:web:99dde90fa03bf6c85ebb87"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Sign in function
+        window.signInWithGoogle = async function () {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const loggedinemail = user.email;
+                console.log("Signed in as:", loggedinemail);
+
+                // Fetch list of allowed emails
+                const db = getDatabase();
+                const dbRef = ref(db);
+                const snapshot = await get(child(dbRef, 'email'));
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const allowedEmails = Object.values(data);
+
+                    if (allowedEmails.includes(loggedinemail)) {
+                        // User is allowed
+                        document.getElementById("maincont").style.visibility = "visible";
+                        document.getElementById("butto").style.display = "none";
+                        document.getElementById("logoutBtn").style.display = "inline-block";
+
+                        // Auto logout after 1 hour
+                        setTimeout(() => {
+                            logOut(true); // auto flag
+                        }, 3600000);
+
+                    } else {
+                        alert("Access denied. You're not an authorized user.");
+                        await signOut(auth);
+                    }
+                } else {
+                    alert("No email list found in database.");
+                }
+
+            } catch (error) {
+                console.error("Sign-in error:", error);
+                alert("Error: " + error.message);
+            }
+        };
+
+        // Log out function
+        window.logOut = async function (auto = false) {
+            try {
+                await signOut(auth);
+                document.getElementById("maincont").style.visibility = "hidden";
+                document.getElementById("butto").style.display = "inline-block";
+                document.getElementById("logoutBtn").style.display = "none";
+                if (!auto) alert("Logged out successfully.");
+            } catch (error) {
+                console.error("Logout error:", error);
+                alert("Error signing out.");
+            }
+        };
+    </script>
+</body>
+
+</html>
