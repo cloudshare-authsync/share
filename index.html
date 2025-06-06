@@ -1,125 +1,50 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-    <title>Google Sign-In</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: sans-serif;
+// Updated Log out function
+window.logOut = async function (auto = false) {
+    try {
+        if (autoLogoutTimer) {
+            clearTimeout(autoLogoutTimer);
+            autoLogoutTimer = null;
         }
 
-        #maincont {
-            height: 100vh;
-            width: 100vw;
-            background-color: burlywood;
-            visibility: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-
-        #butto, #logoutBtn {
-            margin: 20px;
-            padding: 12px 20px;
-            font-size: 16px;
-            border: none;
-            background-color: #333;
-            color: white;
-            cursor: pointer;
-            border-radius: 6px;
-        }
-
-        #logoutBtn {
-            display: none;
-        }
-    </style>
-</head>
-
-<body>
-
-    <button id="butto" onclick="signInWithGoogle()">Sign In with Google</button>
-
-    <div id="maincont">
-        <h1>Welcome, authenticated user!</h1>
-        <button id="logoutBtn" onclick="logOut()">Logout</button>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-        // Firebase config
-        const firebaseConfig = {
-            apiKey: "AIzaSyAuCSEp7ec_at7v3mZz4VYWGHnwe_l_o8I",
-            authDomain: "login-cloud-bd385.firebaseapp.com",
-            projectId: "login-cloud-bd385",
-            appId: "1:582788887209:web:7912e4d4986c8fe6626fb8"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        // Sign in function
-        window.signInWithGoogle = async function () {
-            try {
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                const loggedinemail = user.email;
-                console.log("Signed in as:", loggedinemail);
-
-                // Fetch list of allowed emails
-                const db = getDatabase();
-                const dbRef = ref(db);
-                const snapshot = await get(child(dbRef, 'email'));
-
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    const allowedEmails = Object.values(data);
-
-                    if (allowedEmails.includes(loggedinemail)) {
-                        // User is allowed
-                        document.getElementById("maincont").style.visibility = "visible";
-                        document.getElementById("butto").style.display = "none";
-                        document.getElementById("logoutBtn").style.display = "inline-block";
-
-                        // Auto logout after 1 hour
-                        setTimeout(() => {
-                            logOut(true); // auto flag
-                        }, 3600000);
-
-                    } else {
-                        alert("Access denied. You're not an authorized user.");
-                        await signOut(auth);
+        if (currentUser) {
+            // Get the current email list to find the key
+            const dbRef = ref(db);
+            const snapshot = await get(child(dbRef, 'email'));
+            
+            if (snapshot.exists()) {
+                const emailData = snapshot.val();
+                console.log("Current email data:", emailData);
+                
+                // Find the key that contains the current user's email
+                let keyToDelete = null;
+                for (const [key, email] of Object.entries(emailData)) {
+                    if (email === currentUser.email) {
+                        keyToDelete = key;
+                        break;
                     }
-                } else {
-                    alert("No email list found in database.");
                 }
-
-            } catch (error) {
-                console.error("Sign-in error:", error);
-                alert("Error: " + error.message);
+                
+                if (keyToDelete) {
+                    console.log("Deleting key:", keyToDelete);
+                    const emailRef = ref(db, `email/${keyToDelete}`);
+                    await remove(emailRef);
+                    console.log("Email removed successfully");
+                } else {
+                    console.log("Email not found in database");
+                }
             }
-        };
+        }
 
-        // Log out function
-        window.logOut = async function (auto = false) {
-            try {
-                await signOut(auth);
-                document.getElementById("maincont").style.visibility = "hidden";
-                document.getElementById("butto").style.display = "inline-block";
-                document.getElementById("logoutBtn").style.display = "none";
-                if (!auto) alert("Logged out successfully.");
-            } catch (error) {
-                console.error("Logout error:", error);
-                alert("Error signing out.");
-            }
-        };
-    </script>
-</body>
+        await signOut(auth);
+        currentUser = null;
 
-</html>
+        document.getElementById("maincont").style.visibility = "hidden";
+        document.getElementById("butto").style.display = "inline-block";
+        document.getElementById("logoutBtn").style.display = "none";
+
+        alert(auto ? "Session expired. You have been logged out." : "Logged out successfully.");
+    } catch (error) {
+        console.error("Logout error:", error);
+        alert("Error signing out.");
+    }
+};
