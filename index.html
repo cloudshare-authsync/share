@@ -1,4 +1,127 @@
-// Updated Log out function
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Google Sign-In</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        #maincont {
+            height: 100vh;
+            width: 100vw;
+            background-color: burlywood;
+            visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #butto,
+        #logoutBtn {
+            margin: 20px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            background-color: #333;
+            color: white;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        #logoutBtn {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <button id="butto" onclick="signInWithGoogle()">Sign In with Google</button>
+
+    <div id="maincont">
+        <h1>Welcome, authenticated user!</h1>
+        <button id="logoutBtn" onclick="logOut()">Logout</button>
+        <!-- Add everything here like image and everything that will be visible to authorize owner only-->
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getDatabase, ref, get, child, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuCSEp7ec_at7v3mZz4VYWGHnwe_l_o8I",
+            authDomain: "login-cloud-bd385.firebaseapp.com",
+            projectId: "login-cloud-bd385",
+            appId: "1:582788887209:web:7912e4d4986c8fe6626fb8",
+            databaseURL: "https://login-cloud-bd385-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        const db = getDatabase();
+        let currentUser = null;
+        let autoLogoutTimer = null;
+
+        // Helper: Sanitize email for Firebase key
+        function sanitizeEmail(email) {
+            return email.replace(/\./g, ',');
+        }
+
+        // Sign in function
+        window.signInWithGoogle = async function () {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const loggedinemail = user.email;
+                currentUser = user;
+
+                console.log("Signed in as:", loggedinemail);
+
+                const dbRef = ref(db);
+                const snapshot = await get(child(dbRef, 'email'));
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const allowedEmails = Object.values(data);
+
+                    if (allowedEmails.includes(loggedinemail)) {
+                        // User is allowed
+                        document.getElementById("maincont").style.visibility = "visible";
+                        document.getElementById("butto").style.display = "none";
+                        document.getElementById("logoutBtn").style.display = "inline-block";
+
+                        autoLogoutTimer = setTimeout(() => {
+                            logOut(true); // auto flag
+                        }, 3600000); // 1 hour
+
+                    } else {
+                        alert("Access denied. You're not an authorized user.");
+                        await signOut(auth);
+                        currentUser = null;
+                    }
+                } else {
+                    alert("No email list found in database.");
+                    await signOut(auth);
+                    currentUser = null;
+                }
+
+            } catch (error) {
+                console.error("Sign-in error:", error);
+                alert("Error: " + error.message);
+            }
+        };
+
+        // Log out function
+        // Log out function
+        // Updated Log out function
 window.logOut = async function (auto = false) {
     try {
         if (autoLogoutTimer) {
@@ -48,3 +171,8 @@ window.logOut = async function (auto = false) {
         alert("Error signing out.");
     }
 };
+
+    </script>
+</body>
+
+</html>
